@@ -48,6 +48,7 @@ class QdrantHandler:
         embedding_dim: Dimension of the dense embedding vectors.
         qdrant_url: URL of the Qdrant server.
         qdrant_api_key: API key for Qdrant Cloud (optional for local).
+        embedding_model: Name of the embedding model to use.
         client: Async Qdrant client instance.
         embeddings: OpenAI embeddings model for dense vectors.
         sparse_encoder: Encoder for sparse keyword vectors.
@@ -56,6 +57,7 @@ class QdrantHandler:
     embedding_dim: int = field(default_factory=lambda: get_settings().embedding_dimensions)
     qdrant_url: str = field(default_factory=lambda: get_settings().qdrant_url)
     qdrant_api_key: str | None = field(default_factory=lambda: get_settings().qdrant_api_key)
+    embedding_model: str = field(default_factory=lambda: get_settings().embedding_model)
     client: AsyncQdrantClient | None = field(default=None, init=False)
     embeddings: OpenAIEmbeddings | None = field(default=None, init=False)
     sparse_encoder: SparseEncoder = field(default_factory=SparseEncoder, init=False)
@@ -68,10 +70,11 @@ class QdrantHandler:
             url=self.qdrant_url,
             api_key=self.qdrant_api_key,
             timeout=settings.qdrant_timeout,
+            check_compatibility=False,
         )
         
         self.embeddings = OpenAIEmbeddings(
-            model=settings.embedding_model,
+            model=self.embedding_model,
             dimensions=self.embedding_dim,
         )
         
