@@ -70,9 +70,8 @@ def init_session_state():
         "rrf_k": 60,
         "qdrant_url": os.getenv("QDRANT_URL", "http://localhost:6333"),
         "collection_name": os.getenv("QDRANT_COLLECTION_NAME", "enterprise_rag"),
-        # Grading strategy
         "grading_strategy": os.getenv("GRADING_STRATEGY", "parallel"),
-        # Track if settings changed
+        "reranker_type": os.getenv("RERANKER_TYPE", "none"),
         "settings_hash": None,
     }
     for key, value in defaults.items():
@@ -191,8 +190,8 @@ async def delete_document(doc_id: str):
 
 async def run_query_async(query: str, thread_id: str):
     """Run a query through the RAG pipeline."""
-    # Set grading strategy from session state
     os.environ["GRADING_STRATEGY"] = st.session_state.grading_strategy
+    os.environ["RERANKER_TYPE"] = st.session_state.reranker_type
     
     if st.session_state.app is None:
         st.session_state.app = compile_graph_with_persistence()
@@ -325,6 +324,31 @@ def render_sidebar():
             st.info("💡 Skip mode uses retrieval scores only - no LLM cost!")
         elif grading_strategy == "batch":
             st.info("💡 Batch mode grades all docs in 1 LLM call - most cost-effective!")
+        
+        st.divider()
+        
+        st.markdown("### 🎯 Re-ranking")
+        reranker_options = {
+            "none": "❌ None (RRF only)",
+            "cross-encoder": "🧠 Cross-Encoder (local, free)",
+            "cohere": "☁️ Cohere API (paid, fast)",
+        }
+        reranker_type = st.selectbox(
+            "Re-ranker",
+            options=list(reranker_options.keys()),
+            format_func=lambda x: reranker_options[x],
+            index=list(reranker_options.keys()).index(st.session_state.reranker_type),
+            help="Advanced re-ranking after hybrid search",
+            key="reranker_type_select",
+        )
+        if reranker_type != st.session_state.reranker_type:
+            st.session_state.reranker_type = reranker_type
+            os.environ["RERANKER_TYPE"] = reranker_type
+        
+        if reranker_type == "cross-encoder":
+            st.info("💡 Uses sentence-transformers locally. First run downloads model (~80MB).")
+        elif reranker_type == "cohere":
+            st.info("💡 Requires COHERE_API_KEY. High quality but costs per request.")
         
         st.divider()
         
